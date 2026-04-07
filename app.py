@@ -59,6 +59,49 @@ st.markdown("""
         padding: 10px;
         background-color: white;
     }
+
+    /* Esconder a barra lateral padrão do Streamlit */
+    .st-emotion-cache-vk3wp9 {
+        display: none;
+    }
+    /* Ajustar o padding do conteúdo principal para ocupar o espaço */
+    .st-emotion-cache-z5fcl4 {
+        padding-top: 1rem;
+        padding-right: 1rem;
+        padding-left: 1rem;
+        padding-bottom: 1rem;
+    }
+    /* Centralizar a logo no topo */
+    .logo-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+        padding-top: 20px;
+    }
+    .logo-container img {
+        max-width: 200px; /* Ajuste o tamanho da logo conforme necessário */
+        height: auto;
+    }
+    /* Estilo para os botões de navegação no topo */
+    .top-nav-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 30px;
+    }
+    .top-nav-buttons .stButton > button {
+        background-color: #1E3A8A;
+        color: white;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-size: 1em;
+        border: none;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    .top-nav-buttons .stButton > button:hover {
+        background-color: #152b66;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -94,10 +137,11 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
-    c.execute("SELECT * FROM adms WHERE username='admin'")
+    # Adiciona o admin padrão 'jrentregas' com a senha '850916'
+    c.execute("SELECT * FROM adms WHERE username='jrentregas'")
     if not c.fetchone():
-        senha_hash = hashlib.sha256('123'.encode()).hexdigest()
-        c.execute("INSERT INTO adms VALUES (?, ?)", ('admin', senha_hash))
+        senha_hash = hashlib.sha256('850916'.encode()).hexdigest()
+        c.execute("INSERT INTO adms VALUES (?, ?)", ('jrentregas', senha_hash))
 
     conn.commit()
     conn.close()
@@ -132,10 +176,10 @@ def salvar_cadastro(nome, cpf, telefone, moto, placa, regiao, arquivos):
     data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     c.execute('''INSERT INTO cadastros 
-                 (data_cadastro, nome, cpf, telefone, moto, placa, regiao, status,
+                 (data_cadastro, nome, cpf, telefone, moto, placa, regiao, 
                   cnh, cnh_nome, crlv, crlv_nome, comprovante, comprovante_nome, 
                   foto_moto, foto_moto_nome, selfie, selfie_nome)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
               (data_atual, nome, cpf, telefone, moto, placa, regiao,
                arquivos['cnh']['bytes'], arquivos['cnh']['name'],
                arquivos['crlv']['bytes'], arquivos['crlv']['name'],
@@ -144,11 +188,10 @@ def salvar_cadastro(nome, cpf, telefone, moto, placa, regiao, arquivos):
                arquivos['selfie']['bytes'], arquivos['selfie']['name']))
     conn.commit()
     conn.close()
-    st.session_state['cadastro_sucesso'] = True # Flag para sucesso
 
 def carregar_cadastros():
     conn = sqlite3.connect('grupouniao.db')
-    df = pd.read_sql_query("SELECT id, data_cadastro, nome, cpf, telefone, moto, placa, regiao, status FROM cadastros ORDER BY data_cadastro DESC", conn)
+    df = pd.read_sql_query("SELECT id, data_cadastro, nome, cpf, telefone, moto, placa, regiao, status FROM cadastros", conn)
     conn.close()
     return df
 
@@ -160,9 +203,9 @@ def carregar_cadastro_completo(id_cadastro):
     conn.close()
     if dados:
         colunas = [
-            "id", "data_cadastro", "nome", "cpf", "telefone", "moto", "placa", "regiao", "status",
-            "cnh", "cnh_nome", "crlv", "crlv_nome", "comprovante", "comprovante_nome",
-            "foto_moto", "foto_moto_nome", "selfie", "selfie_nome"
+            'id', 'data_cadastro', 'nome', 'cpf', 'telefone', 'moto', 'placa', 'regiao', 'status',
+            'cnh', 'cnh_nome', 'crlv', 'crlv_nome', 'comprovante', 'comprovante_nome',
+            'foto_moto', 'foto_moto_nome', 'selfie', 'selfie_nome'
         ]
         return dict(zip(colunas, dados))
     return None
@@ -187,46 +230,38 @@ def gerar_pdf_ficha(dados):
     pdf.add_page()
     pdf.set_font("Arial", size=12)
 
-    pdf.cell(200, 10, txt="Ficha de Cadastro de Motoboy - Grupo União", ln=True, align="C")
+    pdf.cell(200, 10, txt="Ficha de Cadastro de Motoboy", ln=True, align="C")
     pdf.ln(10)
 
-    pdf.set_font("Arial", 'B', size=12)
-    pdf.cell(0, 10, f"ID do Cadastro: {dados['id']}", ln=True)
-    pdf.cell(0, 10, f"Status: {dados['status']}", ln=True)
-    pdf.cell(0, 10, f"Data de Cadastro: {dados['data_cadastro']}", ln=True)
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(0, 7, txt="Dados Pessoais:", ln=True)
+    pdf.set_font("Arial", '', 10)
+    pdf.cell(0, 7, txt=f"Nome: {dados['nome']}", ln=True)
+    pdf.cell(0, 7, txt=f"CPF: {dados['cpf']}", ln=True)
+    pdf.cell(0, 7, txt=f"Telefone: {dados['telefone']}", ln=True)
+    pdf.cell(0, 7, txt=f"Data de Cadastro: {dados['data_cadastro']}", ln=True)
+    pdf.cell(0, 7, txt=f"Status: {dados['status']}", ln=True)
     pdf.ln(5)
 
-    pdf.set_font("Arial", 'B', size=12)
-    pdf.cell(0, 10, "Dados Pessoais:", ln=True)
-    pdf.set_font("Arial", size=12)
-    pdf.cell(0, 10, f"Nome: {dados['nome']}", ln=True)
-    pdf.cell(0, 10, f"CPF: {dados['cpf']}", ln=True)
-    pdf.cell(0, 10, f"Telefone: {dados['telefone']}", ln=True)
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(0, 7, txt="Dados da Moto:", ln=True)
+    pdf.set_font("Arial", '', 10)
+    pdf.cell(0, 7, txt=f"Modelo: {dados['moto']}", ln=True)
+    pdf.cell(0, 7, txt=f"Placa: {dados['placa']}", ln=True)
+    pdf.cell(0, 7, txt=f"Região: {dados['regiao']}", ln=True)
     pdf.ln(5)
 
-    pdf.set_font("Arial", 'B', size=12)
-    pdf.cell(0, 10, "Dados da Moto:", ln=True)
-    pdf.set_font("Arial", size=12)
-    pdf.cell(0, 10, f"Modelo: {dados['moto']}", ln=True)
-    pdf.cell(0, 10, f"Placa: {dados['placa']}", ln=True)
-    pdf.ln(5)
+    # Documentos (apenas nomes dos arquivos)
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(0, 7, txt="Documentos Anexados:", ln=True)
+    pdf.set_font("Arial", '', 10)
+    pdf.cell(0, 7, txt=f"CNH: {dados['cnh_nome']}", ln=True)
+    pdf.cell(0, 7, txt=f"CRLV: {dados['crlv_nome']}", ln=True)
+    pdf.cell(0, 7, txt=f"Comprovante de Residência: {dados['comprovante_nome']}", ln=True)
+    pdf.cell(0, 7, txt=f"Foto da Moto: {dados['foto_moto_nome']}", ln=True)
+    pdf.cell(0, 7, txt=f"Selfie: {dados['selfie_nome']}", ln=True)
 
-    pdf.set_font("Arial", 'B', size=12)
-    pdf.cell(0, 10, "Dados Operacionais:", ln=True)
-    pdf.set_font("Arial", size=12)
-    pdf.cell(0, 10, f"Região de Trabalho: {dados['regiao']}", ln=True)
-    pdf.ln(5)
-
-    pdf.set_font("Arial", 'B', size=12)
-    pdf.cell(0, 10, "Documentos Anexados:", ln=True)
-    pdf.set_font("Arial", size=12)
-    pdf.cell(0, 10, f"CNH: {dados['cnh_nome']}", ln=True)
-    pdf.cell(0, 10, f"CRLV: {dados['crlv_nome']}", ln=True)
-    pdf.cell(0, 10, f"Comprovante de Residência: {dados['comprovante_nome']}", ln=True)
-    pdf.cell(0, 10, f"Foto da Moto: {dados['foto_moto_nome']}", ln=True)
-    pdf.cell(0, 10, f"Selfie: {dados['selfie_nome']}", ln=True)
-
-    return pdf.output(dest='S').encode('latin-1') # Retorna bytes do PDF
+    return pdf.output(dest='S').encode('latin1')
 
 # ==========================================
 # INICIALIZAÇÃO DO BANCO DE DADOS
@@ -234,80 +269,85 @@ def gerar_pdf_ficha(dados):
 init_db()
 
 # ==========================================
-# LÓGICA DE NAVEGAÇÃO E PÁGINAS
+# LÓGICA DA APLICAÇÃO STREAMLIT
 # ==========================================
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
+# Função para exibir a logo
+def display_logo():
+    st.markdown(
+        f"""
+        <div class="logo-container">
+            <img src="https://i.imgur.com/XqwkeselctWdszxkOJaqI5FQigDAantl8IX2D0gu2DFGl.png" alt="Logo UNIÃO PRIME RJ">
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# Exibe a logo em todas as páginas
+display_logo()
+
 if st.session_state['logged_in']:
-    st.sidebar.image("https://i.imgur.com/XqwkeselctWdszxkOJaqI5FQigDAantl8IX2D0gu2DFGl.png", use_column_width=True) # Logo JR Entregas
-    st.sidebar.title("Painel Administrativo")
-    pagina_adm = st.sidebar.radio("Navegação", ["📊 Dashboard", "📋 Tabela Geral", "🔎 Conferência Detalhada", "➕ Criar Admin"])
+    st.title("⚙️ Painel Administrativo")
 
-    df_cadastros = carregar_cadastros()
-    total_cadastros = len(df_cadastros)
-    pendentes = df_cadastros[df_cadastros['status'] == 'Pendente'].shape[0]
-    aprovados = df_cadastros[df_cadastros['status'] == 'Aprovado'].shape[0]
-    rejeitados = df_cadastros[df_cadastros['status'] == 'Rejeitado'].shape[0]
+    # Navegação por abas para o Admin
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "📋 Tabela Geral", "🔎 Conferência Detalhada", "➕ Criar Admin"])
 
-    if pagina_adm == "📊 Dashboard":
-        st.title("📊 Dashboard Administrativo")
-        st.markdown("---")
+    with tab1:
+        st.subheader("Visão Geral dos Cadastros")
+        df_cadastros = carregar_cadastros()
 
-        # Cartões de Métricas
+        total_cadastros = len(df_cadastros)
+        pendentes = df_cadastros[df_cadastros['status'] == 'Pendente'].shape[0]
+        aprovados = df_cadastros[df_cadastros['status'] == 'Aprovado'].shape[0]
+        rejeitados = df_cadastros[df_cadastros['status'] == 'Rejeitado'].shape[0]
+
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.markdown(f"""
                 <div class="metric-box total">
-                    <p>Total de Cadastros</p>
                     <h3>{total_cadastros}</h3>
+                    <p>Total de Cadastros</p>
                 </div>
             """, unsafe_allow_html=True)
         with col2:
             st.markdown(f"""
                 <div class="metric-box pendente">
-                    <p>Cadastros Pendentes</p>
                     <h3>{pendentes}</h3>
+                    <p>Cadastros Pendentes</p>
                 </div>
             """, unsafe_allow_html=True)
         with col3:
             st.markdown(f"""
                 <div class="metric-box aprovado">
-                    <p>Cadastros Aprovados</p>
                     <h3>{aprovados}</h3>
+                    <p>Cadastros Aprovados</p>
                 </div>
             """, unsafe_allow_html=True)
         with col4:
             st.markdown(f"""
                 <div class="metric-box rejeitado">
-                    <p>Cadastros Rejeitados</p>
                     <h3>{rejeitados}</h3>
+                    <p>Cadastros Rejeitados</p>
                 </div>
             """, unsafe_allow_html=True)
 
         st.markdown("---")
-
-        # Gráfico de Status
-        st.subheader("Distribuição de Status dos Cadastros")
+        st.subheader("Distribuição de Status")
         if not df_cadastros.empty:
             status_counts = df_cadastros['status'].value_counts().reset_index()
             status_counts.columns = ['Status', 'Quantidade']
-
-            # Definindo cores para o gráfico
-            color_map = {
-                'Pendente': '#FF9800',  # Laranja
-                'Aprovado': '#4CAF50',  # Verde
-                'Rejeitado': '#F44336'  # Vermelho
-            }
-
-            st.bar_chart(status_counts.set_index('Status'), color=['#FF9800', '#4CAF50', '#F44336']) # Cores manuais para Streamlit
+            st.bar_chart(status_counts.set_index('Status'))
         else:
-            st.info("Não há dados de cadastros para exibir no gráfico.")
+            st.info("Nenhum cadastro para exibir no gráfico.")
 
-    elif pagina_adm == "📋 Tabela Geral":
+    with tab2:
         st.subheader("Tabela Geral de Cadastros")
+        df_cadastros = carregar_cadastros()
+
         if df_cadastros.empty:
-            st.warning("Não há cadastros para exibir.")
+            st.info("Nenhum cadastro encontrado.")
         else:
             busca_geral = st.text_input("🔍 Buscar por Nome ou CPF:", placeholder="Digite para encontrar um motoboy específico...", key="busca_tab2")
             df_filtrado = df_cadastros.copy()
@@ -318,16 +358,12 @@ if st.session_state['logged_in']:
                     df_filtrado['cpf'].str.contains(busca_geral, case=False, na=False)
                 ]
 
-            st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
-            st.download_button(
-                label="📥 Exportar Tabela para Excel (CSV)",
-                data=df_filtrado.to_csv(index=False).encode('utf-8'),
-                file_name='cadastros_grupouniao.csv',
-                mime='text/csv',
-            )
+            st.dataframe(df_filtrado, use_container_width=True)
 
-    elif pagina_adm == "🔎 Conferência Detalhada":
-        st.subheader("Conferência e Aprovação")
+    with tab3:
+        st.subheader("Conferência Detalhada de Cadastros")
+        df_cadastros = carregar_cadastros()
+
         if df_cadastros.empty:
             st.warning("Não há cadastros para conferir.")
         else:
@@ -423,11 +459,22 @@ if st.session_state['logged_in']:
                     st.warning("Preencha usuário e senha.")
 
 else: # Página de Login ou Início Público
-    st.sidebar.image("https://i.imgur.com/XqwkeselctWdszxkOJaqI5FQigDAantl8IX2D0gu2DFGl.png", use_column_width=True) # Logo JR Entregas
-    st.sidebar.title("Navegação")
-    pagina_publica = st.sidebar.radio("Escolha uma opção", ["🏠 Início", "📝 Cadastro", "🔒 Login Admin"])
+    # Navegação por botões para o público
+    col_home, col_cadastro, col_login = st.columns(3)
+    with col_home:
+        if st.button("🏠 Início", key="nav_home", use_container_width=True):
+            st.session_state['pagina_publica'] = "🏠 Início"
+    with col_cadastro:
+        if st.button("📝 Cadastro", key="nav_cadastro", use_container_width=True):
+            st.session_state['pagina_publica'] = "📝 Cadastro"
+    with col_login:
+        if st.button("🔒 Login Admin", key="nav_login", use_container_width=True):
+            st.session_state['pagina_publica'] = "🔒 Login Admin"
 
-    if pagina_publica == "🏠 Início":
+    if 'pagina_publica' not in st.session_state:
+        st.session_state['pagina_publica'] = "🏠 Início"
+
+    if st.session_state['pagina_publica'] == "🏠 Início":
         st.title("🚀 Faça parte da nossa equipe!")
         st.markdown("""
             <p style='font-size: 1.1em;'>
@@ -445,9 +492,9 @@ else: # Página de Login ou Início Público
             - **Selfie** (foto do rosto) 🤳
         """)
         st.markdown("---")
-        st.info("👉 Para se cadastrar, acesse o menu lateral e clique em '📝 Cadastro'.")
+        st.info("👉 Para se cadastrar, clique em '📝 Cadastro' acima.")
 
-    elif pagina_publica == "📝 Cadastro":
+    elif st.session_state['pagina_publica'] == "📝 Cadastro":
         st.title("📝 Formulário de Cadastro")
         st.subheader("Preencha seus dados e envie os documentos")
 
@@ -485,7 +532,7 @@ else: # Página de Login ou Início Público
                 else:
                     st.error("⚠️ Por favor, preencha todos os campos e anexe todos os documentos obrigatórios.")
 
-    elif pagina_publica == "🔒 Login Admin":
+    elif st.session_state['pagina_publica'] == "🔒 Login Admin":
         st.title("🔒 Login do Administrador")
         with st.form("login_form"):
             username = st.text_input("Usuário")
