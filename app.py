@@ -144,10 +144,11 @@ def salvar_cadastro(nome, cpf, telefone, moto, placa, regiao, arquivos):
                arquivos['selfie']['bytes'], arquivos['selfie']['name']))
     conn.commit()
     conn.close()
+    st.session_state['cadastro_sucesso'] = True # Flag para sucesso
 
 def carregar_cadastros():
     conn = sqlite3.connect('grupouniao.db')
-    df = pd.read_sql_query("SELECT * FROM cadastros", conn)
+    df = pd.read_sql_query("SELECT id, data_cadastro, nome, cpf, telefone, moto, placa, regiao, status FROM cadastros ORDER BY data_cadastro DESC", conn)
     conn.close()
     return df
 
@@ -158,9 +159,11 @@ def carregar_cadastro_completo(id_cadastro):
     dados = c.fetchone()
     conn.close()
     if dados:
-        colunas = ['id', 'data_cadastro', 'nome', 'cpf', 'telefone', 'moto', 'placa', 'regiao', 'status',
-                   'cnh', 'cnh_nome', 'crlv', 'crlv_nome', 'comprovante', 'comprovante_nome',
-                   'foto_moto', 'foto_moto_nome', 'selfie', 'selfie_nome']
+        colunas = [
+            "id", "data_cadastro", "nome", "cpf", "telefone", "moto", "placa", "regiao", "status",
+            "cnh", "cnh_nome", "crlv", "crlv_nome", "comprovante", "comprovante_nome",
+            "foto_moto", "foto_moto_nome", "selfie", "selfie_nome"
+        ]
         return dict(zip(colunas, dados))
     return None
 
@@ -170,7 +173,6 @@ def atualizar_status(id_cadastro, novo_status):
     c.execute("UPDATE cadastros SET status=? WHERE id=?", (novo_status, id_cadastro))
     conn.commit()
     conn.close()
-    st.success(f"Status atualizado para '{novo_status}'!")
 
 def excluir_cadastro(id_cadastro):
     conn = sqlite3.connect('grupouniao.db')
@@ -178,37 +180,53 @@ def excluir_cadastro(id_cadastro):
     c.execute("DELETE FROM cadastros WHERE id=?", (id_cadastro,))
     conn.commit()
     conn.close()
-    st.success("Cadastro excluído permanentemente!")
+    st.success(f"🗑️ Cadastro ID {id_cadastro} excluído permanentemente.")
 
 def gerar_pdf_ficha(dados):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
 
-    pdf.cell(200, 10, txt="Ficha de Cadastro de Motoboy", ln=True, align='C')
+    pdf.cell(200, 10, txt="Ficha de Cadastro de Motoboy - Grupo União", ln=True, align="C")
     pdf.ln(10)
 
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, f"Nome: {dados['nome']}", ln=True)
-    pdf.set_font("Arial", '', 12)
-    pdf.cell(0, 10, f"CPF: {dados['cpf']}", ln=True)
-    pdf.cell(0, 10, f"Telefone: {dados['telefone']}", ln=True)
-    pdf.cell(0, 10, f"Moto: {dados['moto']} (Placa: {dados['placa']})", ln=True)
-    pdf.cell(0, 10, f"Região: {dados['regiao']}", ln=True)
+    pdf.set_font("Arial", 'B', size=12)
+    pdf.cell(0, 10, f"ID do Cadastro: {dados['id']}", ln=True)
     pdf.cell(0, 10, f"Status: {dados['status']}", ln=True)
     pdf.cell(0, 10, f"Data de Cadastro: {dados['data_cadastro']}", ln=True)
+    pdf.ln(5)
 
-    pdf.ln(10)
-    pdf.set_font("Arial", 'B', 12)
+    pdf.set_font("Arial", 'B', size=12)
+    pdf.cell(0, 10, "Dados Pessoais:", ln=True)
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, f"Nome: {dados['nome']}", ln=True)
+    pdf.cell(0, 10, f"CPF: {dados['cpf']}", ln=True)
+    pdf.cell(0, 10, f"Telefone: {dados['telefone']}", ln=True)
+    pdf.ln(5)
+
+    pdf.set_font("Arial", 'B', size=12)
+    pdf.cell(0, 10, "Dados da Moto:", ln=True)
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, f"Modelo: {dados['moto']}", ln=True)
+    pdf.cell(0, 10, f"Placa: {dados['placa']}", ln=True)
+    pdf.ln(5)
+
+    pdf.set_font("Arial", 'B', size=12)
+    pdf.cell(0, 10, "Dados Operacionais:", ln=True)
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, f"Região de Trabalho: {dados['regiao']}", ln=True)
+    pdf.ln(5)
+
+    pdf.set_font("Arial", 'B', size=12)
     pdf.cell(0, 10, "Documentos Anexados:", ln=True)
-    pdf.set_font("Arial", '', 12)
-    pdf.cell(0, 10, f"- CNH: {dados['cnh_nome']}", ln=True)
-    pdf.cell(0, 10, f"- CRLV: {dados['crlv_nome']}", ln=True)
-    pdf.cell(0, 10, f"- Comprovante de Residência: {dados['comprovante_nome']}", ln=True)
-    pdf.cell(0, 10, f"- Foto da Moto: {dados['foto_moto_nome']}", ln=True)
-    pdf.cell(0, 10, f"- Selfie: {dados['selfie_nome']}", ln=True)
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, f"CNH: {dados['cnh_nome']}", ln=True)
+    pdf.cell(0, 10, f"CRLV: {dados['crlv_nome']}", ln=True)
+    pdf.cell(0, 10, f"Comprovante de Residência: {dados['comprovante_nome']}", ln=True)
+    pdf.cell(0, 10, f"Foto da Moto: {dados['foto_moto_nome']}", ln=True)
+    pdf.cell(0, 10, f"Selfie: {dados['selfie_nome']}", ln=True)
 
-    return pdf.output(dest='S').encode('latin-1')
+    return pdf.output(dest='S').encode('latin-1') # Retorna bytes do PDF
 
 # ==========================================
 # INICIALIZAÇÃO DO BANCO DE DADOS
@@ -216,7 +234,7 @@ def gerar_pdf_ficha(dados):
 init_db()
 
 # ==========================================
-# LÓGICA DO APLICATIVO STREAMLIT
+# LÓGICA DE NAVEGAÇÃO E PÁGINAS
 # ==========================================
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
@@ -224,86 +242,86 @@ if 'logged_in' not in st.session_state:
 if st.session_state['logged_in']:
     st.sidebar.image("https://i.imgur.com/XqwkeselctWdszxkOJaqI5FQigDAantl8IX2D0gu2DFGl.png", use_column_width=True) # Logo JR Entregas
     st.sidebar.title("Painel Administrativo")
-    pagina_adm = st.sidebar.radio(
-        "Navegação",
-        ["📊 Dashboard", "📋 Tabela Geral", "🔎 Conferência Detalhada", "➕ Criar Admin"]
-    )
-    st.sidebar.markdown("---")
-    if st.sidebar.button("Sair"):
-        st.session_state['logged_in'] = False
-        st.rerun()
+    pagina_adm = st.sidebar.radio("Navegação", ["📊 Dashboard", "📋 Tabela Geral", "🔎 Conferência Detalhada", "➕ Criar Admin"])
 
     df_cadastros = carregar_cadastros()
+    total_cadastros = len(df_cadastros)
+    pendentes = df_cadastros[df_cadastros['status'] == 'Pendente'].shape[0]
+    aprovados = df_cadastros[df_cadastros['status'] == 'Aprovado'].shape[0]
+    rejeitados = df_cadastros[df_cadastros['status'] == 'Rejeitado'].shape[0]
 
     if pagina_adm == "📊 Dashboard":
-        st.title("📊 Dashboard de Cadastros")
-        st.markdown("Bem-vindo ao painel de controle! Aqui você tem uma visão geral dos cadastros.")
+        st.title("📊 Dashboard Administrativo")
+        st.markdown("---")
 
-        total_cadastros = len(df_cadastros)
-        pendentes = df_cadastros[df_cadastros['status'] == 'Pendente'].shape[0]
-        aprovados = df_cadastros[df_cadastros['status'] == 'Aprovado'].shape[0]
-        rejeitados = df_cadastros[df_cadastros['status'] == 'Rejeitado'].shape[0]
-
-        # Layout dos cartões de métricas
+        # Cartões de Métricas
         col1, col2, col3, col4 = st.columns(4)
-
         with col1:
             st.markdown(f"""
-            <div class="metric-box total">
-                <h3>{total_cadastros}</h3>
-                <p>Total de Cadastros</p>
-            </div>
+                <div class="metric-box total">
+                    <p>Total de Cadastros</p>
+                    <h3>{total_cadastros}</h3>
+                </div>
             """, unsafe_allow_html=True)
         with col2:
             st.markdown(f"""
-            <div class="metric-box pendente">
-                <h3>{pendentes}</h3>
-                <p>Cadastros Pendentes</p>
-            </div>
+                <div class="metric-box pendente">
+                    <p>Cadastros Pendentes</p>
+                    <h3>{pendentes}</h3>
+                </div>
             """, unsafe_allow_html=True)
         with col3:
             st.markdown(f"""
-            <div class="metric-box aprovado">
-                <h3>{aprovados}</h3>
-                <p>Cadastros Aprovados</p>
-            </div>
+                <div class="metric-box aprovado">
+                    <p>Cadastros Aprovados</p>
+                    <h3>{aprovados}</h3>
+                </div>
             """, unsafe_allow_html=True)
         with col4:
             st.markdown(f"""
-            <div class="metric-box rejeitado">
-                <h3>{rejeitados}</h3>
-                <p>Cadastros Rejeitados</p>
-            </div>
+                <div class="metric-box rejeitado">
+                    <p>Cadastros Rejeitados</p>
+                    <h3>{rejeitados}</h3>
+                </div>
             """, unsafe_allow_html=True)
 
-        st.markdown("---") # Separador para o gráfico
+        st.markdown("---")
 
+        # Gráfico de Status
         st.subheader("Distribuição de Status dos Cadastros")
         if not df_cadastros.empty:
             status_counts = df_cadastros['status'].value_counts().reset_index()
             status_counts.columns = ['Status', 'Quantidade']
-            st.bar_chart(status_counts.set_index('Status'))
+
+            # Definindo cores para o gráfico
+            color_map = {
+                'Pendente': '#FF9800',  # Laranja
+                'Aprovado': '#4CAF50',  # Verde
+                'Rejeitado': '#F44336'  # Vermelho
+            }
+
+            st.bar_chart(status_counts.set_index('Status'), color=['#FF9800', '#4CAF50', '#F44336']) # Cores manuais para Streamlit
         else:
             st.info("Não há dados de cadastros para exibir no gráfico.")
 
     elif pagina_adm == "📋 Tabela Geral":
         st.subheader("Tabela Geral de Cadastros")
         if df_cadastros.empty:
-            st.info("Nenhum cadastro recebido até o momento.")
+            st.warning("Não há cadastros para exibir.")
         else:
-            busca_tabela = st.text_input("🔍 Buscar por Nome ou CPF:", placeholder="Digite para filtrar a tabela...", key="busca_tab2")
-            df_tab2 = df_cadastros.copy()
+            busca_geral = st.text_input("🔍 Buscar por Nome ou CPF:", placeholder="Digite para encontrar um motoboy específico...", key="busca_tab2")
+            df_filtrado = df_cadastros.copy()
 
-            if busca_tabela:
-                df_tab2 = df_tab2[
-                    df_tab2['nome'].str.contains(busca_tabela, case=False, na=False) | 
-                    df_tab2['cpf'].str.contains(busca_tabela, case=False, na=False)
+            if busca_geral:
+                df_filtrado = df_filtrado[
+                    df_filtrado['nome'].str.contains(busca_geral, case=False, na=False) | 
+                    df_filtrado['cpf'].str.contains(busca_geral, case=False, na=False)
                 ]
 
-            st.dataframe(df_tab2, use_container_width=True, hide_index=True)
+            st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
             st.download_button(
                 label="📥 Exportar Tabela para Excel (CSV)",
-                data=df_tab2.to_csv(index=False).encode('utf-8'),
+                data=df_filtrado.to_csv(index=False).encode('utf-8'),
                 file_name='cadastros_grupouniao.csv',
                 mime='text/csv',
             )
