@@ -4,6 +4,7 @@ import pandas as pd
 import datetime
 import hashlib
 from fpdf import FPDF
+import plotly.express as px
 
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA E ESTILO
@@ -176,37 +177,35 @@ def salvar_cadastro(nome, cpf, telefone, moto, placa, regiao, arquivos):
     conn = sqlite3.connect('grupouniao.db')
     c = conn.cursor()
     data_cadastro = datetime.date.today().strftime("%d/%m/%Y")
-    c.execute("""
-        INSERT INTO cadastros (
-            data_cadastro, nome, cpf, telefone, moto, placa, regiao,
-            cnh, cnh_nome, crlv, crlv_nome, comprovante, comprovante_nome,
-            foto_moto, foto_moto_nome, selfie, selfie_nome
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        data_cadastro, nome, cpf, telefone, moto, placa, regiao,
-        arquivos['cnh']['bytes'], arquivos['cnh']['name'],
-        arquivos['crlv']['bytes'], arquivos['crlv']['name'],
-        arquivos['comprovante']['bytes'], arquivos['comprovante']['name'],
-        arquivos['foto_moto']['bytes'], arquivos['foto_moto']['name'],
-        arquivos['selfie']['bytes'], arquivos['selfie']['name']
-    ))
+
+    c.execute('''INSERT INTO cadastros (
+                    data_cadastro, nome, cpf, telefone, moto, placa, regiao,
+                    cnh, cnh_nome, crlv, crlv_nome, comprovante, comprovante_nome,
+                    foto_moto, foto_moto_nome, selfie, selfie_nome
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+              (data_cadastro, nome, cpf, telefone, moto, placa, regiao,
+               arquivos['cnh']['bytes'], arquivos['cnh']['name'],
+               arquivos['crlv']['bytes'], arquivos['crlv']['name'],
+               arquivos['comprovante']['bytes'], arquivos['comprovante']['name'],
+               arquivos['foto_moto']['bytes'], arquivos['foto_moto']['name'],
+               arquivos['selfie']['bytes'], arquivos['selfie']['name']))
     conn.commit()
     conn.close()
 
-def carregar_cadastros():
+def get_cadastros():
     conn = sqlite3.connect('grupouniao.db')
     df = pd.read_sql_query("SELECT id, data_cadastro, nome, cpf, telefone, moto, placa, regiao, status FROM cadastros", conn)
     conn.close()
     return df
 
-def carregar_cadastro_completo(id_cadastro):
+def get_cadastro_detalhes(id_cadastro):
     conn = sqlite3.connect('grupouniao.db')
     c = conn.cursor()
     c.execute("SELECT * FROM cadastros WHERE id=?", (id_cadastro,))
     dados = c.fetchone()
     conn.close()
     if dados:
-        # Mapeia os dados para um dicionário com os nomes das colunas
+        # Mapear os dados para um dicionário com nomes de colunas
         colunas = [description[0] for description in c.description]
         return dict(zip(colunas, dados))
     return None
@@ -230,41 +229,31 @@ def gerar_pdf_ficha(dados):
     pdf.add_page()
     pdf.set_font("Arial", size=12)
 
-    pdf.cell(200, 10, txt="Ficha de Cadastro de Motoboy - Grupo União", ln=True, align="C")
+    pdf.cell(200, 10, txt="Ficha de Cadastro de Motoboy - Grupo União Prime RJ", ln=True, align="C")
     pdf.ln(10)
 
-    pdf.set_font("Arial", 'B', 10)
-    pdf.cell(0, 10, f"ID do Cadastro: {dados['id']}", ln=True)
-    pdf.cell(0, 10, f"Data do Cadastro: {dados['data_cadastro']}", ln=True)
-    pdf.cell(0, 10, f"Status: {dados['status']}", ln=True)
-    pdf.ln(5)
-
-    pdf.set_font("Arial", 'B', 10)
+    pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, "Dados Pessoais:", ln=True)
-    pdf.set_font("Arial", '', 10)
-    pdf.cell(0, 10, f"Nome: {dados['nome']}", ln=True)
-    pdf.cell(0, 10, f"CPF: {dados['cpf']}", ln=True)
-    pdf.cell(0, 10, f"Telefone: {dados['telefone']}", ln=True)
+    pdf.set_font("Arial", size=10)
+    pdf.cell(0, 7, f"Nome: {dados['nome']}", ln=True)
+    pdf.cell(0, 7, f"CPF: {dados['cpf']}", ln=True)
+    pdf.cell(0, 7, f"Telefone: {dados['telefone']}", ln=True)
+    pdf.cell(0, 7, f"Região: {dados['regiao']}", ln=True)
+    pdf.cell(0, 7, f"Status: {dados['status']}", ln=True)
     pdf.ln(5)
 
-    pdf.set_font("Arial", 'B', 10)
+    pdf.set_font("Arial", 'B', 12)
     pdf.cell(0, 10, "Dados da Moto:", ln=True)
-    pdf.set_font("Arial", '', 10)
-    pdf.cell(0, 10, f"Modelo: {dados['moto']}", ln=True)
-    pdf.cell(0, 10, f"Placa: {dados['placa']}", ln=True)
-    pdf.cell(0, 10, f"Região: {dados['regiao']}", ln=True)
+    pdf.set_font("Arial", size=10)
+    pdf.cell(0, 7, f"Modelo: {dados['moto']}", ln=True)
+    pdf.cell(0, 7, f"Placa: {dados['placa']}", ln=True)
     pdf.ln(5)
 
-    pdf.set_font("Arial", 'B', 10)
-    pdf.cell(0, 10, "Documentos Anexados:", ln=True)
-    pdf.set_font("Arial", '', 10)
-    pdf.cell(0, 10, f"CNH: {dados['cnh_nome']}", ln=True)
-    pdf.cell(0, 10, f"CRLV: {dados['crlv_nome']}", ln=True)
-    pdf.cell(0, 10, f"Comprovante de Residência: {dados['comprovante_nome']}", ln=True)
-    pdf.cell(0, 10, f"Foto da Moto: {dados['foto_moto_nome']}", ln=True)
-    pdf.cell(0, 10, f"Selfie: {dados['selfie_nome']}", ln=True)
+    # Adicionar uma nota sobre documentos anexados
+    pdf.set_font("Arial", 'I', 10)
+    pdf.cell(0, 10, "Documentos anexados digitalmente no sistema.", ln=True)
 
-    return pdf.output(dest='S').encode('latin-1') # Retorna o PDF como bytes
+    return pdf.output(dest='S').encode('latin-1') # Retorna bytes do PDF
 
 # ==========================================
 # INICIALIZAÇÃO DO BANCO DE DADOS
@@ -274,168 +263,187 @@ init_db()
 # ==========================================
 # LÓGICA PRINCIPAL DO APP
 # ==========================================
-# Logo no topo
-st.markdown(
-    """
-    <div class="logo-container">
-        <img src="https://i.imgur.com/XqwkeselctWdszxkOJaqI5FQigDAantl8IX2D0gu2DFGl.png" alt="Logo UNIÃO PRIME RJ">
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
+# Inicializa o estado de login e página pública
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
+if 'pagina_publica' not in st.session_state:
+    st.session_state['pagina_publica'] = "🏠 Início"
+
+# Exibe a logo no topo de todas as páginas
+st.markdown('<div class="logo-container">', unsafe_allow_html=True)
+st.image("https://i.imgur.com/XqwkeselctWdszxkOJaqI5FQigDAantl8IX2D0gu2DFGl.png", use_column_width=False) # Logo JR Entregas
+st.markdown('</div>', unsafe_allow_html=True)
 
 if st.session_state['logged_in']:
+    # Área Administrativa
     st.title("Painel Administrativo")
+
+    # Botão de Logout no canto superior direito
+    col_title, col_logout = st.columns([0.8, 0.2])
+    with col_title:
+        st.subheader("Bem-vindo(a), Administrador(a)!")
+    with col_logout:
+        if st.button("Sair (Logout)", key="admin_logout_btn", use_container_width=True):
+            st.session_state['logged_in'] = False
+            st.session_state['pagina_publica'] = "🏠 Início" # Redireciona para a página inicial pública
+            st.rerun()
 
     # Navegação por abas para o administrador
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "📋 Tabela Geral", "🔍 Conferência Detalhada", "Criar Admin"])
 
     with tab1:
         st.subheader("Visão Geral dos Cadastros")
-        df_cadastros = carregar_cadastros()
+        df_cadastros = get_cadastros()
 
         total_cadastros = len(df_cadastros)
         pendentes = df_cadastros[df_cadastros['status'] == 'Pendente'].shape[0]
         aprovados = df_cadastros[df_cadastros['status'] == 'Aprovado'].shape[0]
         rejeitados = df_cadastros[df_cadastros['status'] == 'Rejeitado'].shape[0]
 
-        # Layout de 4 colunas para os cartões de métricas
         col1, col2, col3, col4 = st.columns(4)
-
         with col1:
             st.markdown(f"""
                 <div class="metric-box total">
-                    <h3>{total_cadastros}</h3>
                     <p>Total de Cadastros</p>
+                    <h3>{total_cadastros}</h3>
                 </div>
             """, unsafe_allow_html=True)
         with col2:
             st.markdown(f"""
                 <div class="metric-box pendente">
-                    <h3>{pendentes}</h3>
                     <p>Cadastros Pendentes</p>
+                    <h3>{pendentes}</h3>
                 </div>
             """, unsafe_allow_html=True)
         with col3:
             st.markdown(f"""
                 <div class="metric-box aprovado">
-                    <h3>{aprovados}</h3>
                     <p>Cadastros Aprovados</p>
+                    <h3>{aprovados}</h3>
                 </div>
             """, unsafe_allow_html=True)
         with col4:
             st.markdown(f"""
                 <div class="metric-box rejeitado">
-                    <h3>{rejeitados}</h3>
                     <p>Cadastros Rejeitados</p>
+                    <h3>{rejeitados}</h3>
                 </div>
             """, unsafe_allow_html=True)
 
         st.markdown("---")
-        st.subheader("Cadastros por Status")
+        st.subheader("Distribuição de Status")
         if not df_cadastros.empty:
             status_counts = df_cadastros['status'].value_counts().reset_index()
-            status_counts.columns = ['Status', 'Quantidade']
-            st.bar_chart(status_counts.set_index('Status'))
+            status_counts.columns = ['Status', 'Contagem']
+
+            fig = px.bar(status_counts, x='Status', y='Contagem', 
+                         color='Status',
+                         color_discrete_map={'Pendente': '#FF9800', 'Aprovado': '#4CAF50', 'Rejeitado': '#F44336'},
+                         title='Cadastros por Status')
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Nenhum cadastro para exibir no momento.")
 
     with tab2:
         st.subheader("Tabela Geral de Cadastros")
-        df_cadastros = carregar_cadastros()
 
-        search_query_tab2 = st.text_input("🔍 Buscar por Nome ou CPF (Tabela Geral)", key="search_tab2")
+        # Campo de busca rápida
+        search_term_tab2 = st.text_input("🔍 Buscar por Nome ou CPF", key="search_tab2")
 
-        df_filtrado_tab2 = df_cadastros.copy()
-        if search_query_tab2:
-            df_filtrado_tab2 = df_filtrado_tab2[
-                df_filtrado_tab2['nome'].str.contains(search_query_tab2, case=False, na=False) |
-                df_filtrado_tab2['cpf'].str.contains(search_query_tab2, case=False, na=False)
+        df_cadastros_tab2 = get_cadastros()
+
+        if search_term_tab2:
+            df_cadastros_tab2 = df_cadastros_tab2[
+                df_cadastros_tab2['nome'].str.contains(search_term_tab2, case=False, na=False) |
+                df_cadastros_tab2['cpf'].str.contains(search_term_tab2, case=False, na=False)
             ]
 
-        st.dataframe(df_filtrado_tab2, use_container_width=True)
+        if not df_cadastros_tab2.empty:
+            st.dataframe(df_cadastros_tab2)
+        else:
+            st.info("Nenhum cadastro encontrado com os critérios de busca ou a tabela está vazia.")
 
     with tab3:
         st.subheader("Conferência Detalhada de Cadastros")
-        df_cadastros = carregar_cadastros()
 
-        search_query_tab3 = st.text_input("🔍 Buscar por Nome ou CPF (Conferência Detalhada)", key="search_tab3")
+        # Campo de busca rápida
+        search_term_tab3 = st.text_input("🔍 Buscar por Nome ou CPF", key="search_tab3")
 
-        df_filtrado_tab3 = df_cadastros.copy()
-        if search_query_tab3:
-            df_filtrado_tab3 = df_filtrado_tab3[
-                df_filtrado_tab3['nome'].str.contains(search_query_tab3, case=False, na=False) |
-                df_filtrado_tab3['cpf'].str.contains(search_query_tab3, case=False, na=False)
+        df_pendentes = get_cadastros()
+
+        if search_term_tab3:
+            df_pendentes = df_pendentes[
+                df_pendentes['nome'].str.contains(search_term_tab3, case=False, na=False) |
+                df_pendentes['cpf'].str.contains(search_term_tab3, case=False, na=False)
             ]
 
-        if df_filtrado_tab3.empty:
-            st.info("Nenhum cadastro encontrado com os critérios de busca ou para conferência.")
-        else:
-            opcoes = [f"ID: {row['id']} - {row['nome']} (CPF: {row['cpf']}) - Status: {row['status']}" for index, row in df_filtrado_tab3.iterrows()]
-            selecao = st.selectbox("Selecione o motoboy para conferência:", opcoes)
+        # Filtra apenas os pendentes para a seleção inicial, mas permite buscar em todos
+        opcoes_cadastro = df_pendentes['nome'] + " (CPF: " + df_pendentes['cpf'] + ") - Status: " + df_pendentes['status']
 
-            if selecao:
-                id_selecionado = int(selecao.split(" - ")[0].replace("ID: ", ""))
-                dados = carregar_cadastro_completo(id_selecionado)
-                status_atual = dados.get('status', 'Pendente')
+        if not opcoes_cadastro.empty:
+            cadastro_selecionado_str = st.selectbox("Selecione um cadastro para conferir:", opcoes_cadastro)
 
-                st.markdown("---")
-                col_info, col_docs = st.columns([1, 1.5])
+            if cadastro_selecionado_str:
+                # Extrai o ID do cadastro selecionado
+                id_selecionado = df_pendentes[opcoes_cadastro == cadastro_selecionado_str]['id'].iloc[0]
+                dados = get_cadastro_detalhes(id_selecionado)
 
-                with col_info:
-                    st.markdown(f"### 👤 {dados['nome']}")
-                    st.write(f"**Status:** <span class='status-{status_atual.lower()}'>{status_atual}</span>", unsafe_allow_html=True)
-                    st.write(f"**Data:** {dados['data_cadastro']}")
-                    st.write(f"**CPF:** {dados['cpf']}")
-                    st.write(f"**Telefone:** {dados['telefone']}")
-                    st.write(f"**Moto:** {dados['moto']} (Placa: {dados['placa']})")
-                    st.write(f"**Região:** {dados['regiao']}")
+                if dados:
+                    st.markdown("---")
+                    col_info, col_docs = st.columns([1, 1.5])
 
-                    st.markdown("#### Ações")
-                    c1, c2, c3 = st.columns(3)
-                    with c1:
-                        if st.button("✅ Aprovar", use_container_width=True):
-                            atualizar_status(id_selecionado, "Aprovado")
-                            st.rerun()
-                    with c2:
-                        if st.button("❌ Rejeitar", use_container_width=True):
-                            atualizar_status(id_selecionado, "Rejeitado")
-                            st.rerun()
-                    with c3:
-                        if st.button("🗑️ Excluir", use_container_width=True):
-                            excluir_cadastro(id_selecionado)
-                            st.rerun()
+                    with col_info:
+                        status_atual = dados['status']
+                        st.markdown(f"### 👤 {dados['nome']}")
+                        st.write(f"**Status:** <span class='status-{status_atual.lower()}'>{status_atual}</span>", unsafe_allow_html=True)
+                        st.write(f"**Data:** {dados['data_cadastro']}")
+                        st.write(f"**CPF:** {dados['cpf']}")
+                        st.write(f"**Telefone:** {dados['telefone']}")
+                        st.write(f"**Moto:** {dados['moto']} (Placa: {dados['placa']})")
+                        st.write(f"**Região:** {dados['regiao']}")
 
-                    st.markdown("#### Exportação")
-                    pdf_bytes = gerar_pdf_ficha(dados)
-                    st.download_button(
-                        label="📄 Baixar Ficha em PDF",
-                        data=pdf_bytes,
-                        file_name=f"Ficha_{dados['nome'].replace(' ', '_')}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
+                        st.markdown("#### Ações")
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            if st.button("✅ Aprovar", use_container_width=True):
+                                atualizar_status(id_selecionado, "Aprovado")
+                                st.rerun()
+                        with c2:
+                            if st.button("❌ Rejeitar", use_container_width=True):
+                                atualizar_status(id_selecionado, "Rejeitado")
+                                st.rerun()
+                        with c3:
+                            if st.button("🗑️ Excluir", use_container_width=True):
+                                excluir_cadastro(id_selecionado)
+                                st.rerun()
 
-                with col_docs:
-                    st.markdown("### 📄 Documentos Anexados")
-                    docs_lista = [
-                        ("CNH", dados['cnh'], dados['cnh_nome']),
-                        ("CRLV", dados['crlv'], dados['crlv_nome']),
-                        ("Comprovante", dados['comprovante'], dados['comprovante_nome']),
-                        ("Foto da Moto", dados['foto_moto'], dados['foto_moto_nome']),
-                        ("Selfie", dados['selfie'], dados['selfie_nome'])
-                    ]
+                        st.markdown("#### Exportação")
+                        pdf_bytes = gerar_pdf_ficha(dados)
+                        st.download_button(
+                            label="📄 Baixar Ficha em PDF",
+                            data=pdf_bytes,
+                            file_name=f"Ficha_{dados['nome'].replace(' ', '_')}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
 
-                    for titulo, arquivo_bytes, nome_arquivo in docs_lista:
-                        with st.expander(f"Visualizar {titulo} ({nome_arquivo})"):
-                            if nome_arquivo.lower().endswith('.pdf'):
-                                st.info("Este arquivo é um PDF. Clique abaixo para baixar.")
-                                st.download_button(label=f"Baixar {titulo}", data=arquivo_bytes, file_name=nome_arquivo, mime="application/pdf", key=f"dl_{titulo}_{id_selecionado}")
-                            else:
-                                st.image(arquivo_bytes, caption=titulo, use_container_width=True)
+                    with col_docs:
+                        st.markdown("### 📄 Documentos Anexados")
+                        docs_lista = [
+                            ("CNH", dados['cnh'], dados['cnh_nome']),
+                            ("CRLV", dados['crlv'], dados['crlv_nome']),
+                            ("Comprovante", dados['comprovante'], dados['comprovante_nome']),
+                            ("Foto da Moto", dados['foto_moto'], dados['foto_moto_nome']),
+                            ("Selfie", dados['selfie'], dados['selfie_nome'])
+                        ]
+
+                        for titulo, arquivo_bytes, nome_arquivo in docs_lista:
+                            with st.expander(f"Visualizar {titulo} ({nome_arquivo})"):
+                                if nome_arquivo.lower().endswith('.pdf'):
+                                    st.info("Este arquivo é um PDF. Clique abaixo para baixar.")
+                                    st.download_button(label=f"Baixar {titulo}", data=arquivo_bytes, file_name=nome_arquivo, mime="application/pdf", key=f"dl_{titulo}_{id_selecionado}")
+                                else:
+                                    st.image(arquivo_bytes, caption=titulo, use_container_width=True)
 
     with tab4:
         st.subheader("Adicionar Novo Administrador")
