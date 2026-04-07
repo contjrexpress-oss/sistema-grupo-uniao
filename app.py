@@ -23,6 +23,42 @@ st.markdown("""
     .stExpander { border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     .stExpander > div > div > p { font-weight: bold; color: #1E3A8A; }
     .stFileUploader { margin-top: 10px; margin-bottom: 20px; }
+
+    /* Estilos para os novos cartões de métricas */
+    .metric-box {
+        border-radius: 8px;
+        padding: 15px 20px;
+        color: white;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100px; /* Altura fixa para todos os cartões */
+    }
+    .metric-box h3 {
+        color: white;
+        margin: 0;
+        font-size: 1.8em;
+        font-weight: 600;
+    }
+    .metric-box p {
+        color: rgba(255, 255, 255, 0.8);
+        margin: 0;
+        font-size: 0.9em;
+    }
+    .metric-box.total { background-color: #00BCD4; } /* Azul Ciano */
+    .metric-box.pendente { background-color: #FF9800; } /* Laranja */
+    .metric-box.aprovado { background-color: #4CAF50; } /* Verde */
+    .metric-box.rejeitado { background-color: #F44336; } /* Vermelho */
+
+    /* Ajustes para o gráfico */
+    .stPlotlyChart {
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        padding: 10px;
+        background-color: white;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -122,7 +158,9 @@ def carregar_cadastro_completo(id_cadastro):
     dados = c.fetchone()
     conn.close()
     if dados:
-        colunas = [description[0] for description in c.description]
+        colunas = ['id', 'data_cadastro', 'nome', 'cpf', 'telefone', 'moto', 'placa', 'regiao', 'status',
+                   'cnh', 'cnh_nome', 'crlv', 'crlv_nome', 'comprovante', 'comprovante_nome',
+                   'foto_moto', 'foto_moto_nome', 'selfie', 'selfie_nome']
         return dict(zip(colunas, dados))
     return None
 
@@ -132,6 +170,7 @@ def atualizar_status(id_cadastro, novo_status):
     c.execute("UPDATE cadastros SET status=? WHERE id=?", (novo_status, id_cadastro))
     conn.commit()
     conn.close()
+    st.success(f"Status atualizado para '{novo_status}'!")
 
 def excluir_cadastro(id_cadastro):
     conn = sqlite3.connect('grupouniao.db')
@@ -139,117 +178,116 @@ def excluir_cadastro(id_cadastro):
     c.execute("DELETE FROM cadastros WHERE id=?", (id_cadastro,))
     conn.commit()
     conn.close()
+    st.success("Cadastro excluído permanentemente!")
 
 def gerar_pdf_ficha(dados):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
 
-    # Título
-    pdf.set_fill_color(30, 58, 138) # Azul escuro
-    pdf.rect(0, 0, 210, 20, 'F')
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "FICHA DE CADASTRO - GRUPO UNIÃO PRIME RJ", 0, 1, 'C')
-    pdf.ln(5)
+    pdf.cell(200, 10, txt="Ficha de Cadastro de Motoboy", ln=True, align='C')
+    pdf.ln(10)
 
-    pdf.set_text_color(0, 0, 0) # Preto
-    pdf.set_font("Arial", size=10)
-
-    # Função auxiliar para adicionar seção
-    def add_section(title, data_dict):
-        pdf.set_font("Arial", 'B', 12)
-        pdf.set_fill_color(230, 230, 230) # Cinza claro
-        pdf.cell(0, 8, title, 0, 1, 'L', 1)
-        pdf.set_font("Arial", size=10)
-        pdf.ln(2)
-        for key, value in data_dict.items():
-            pdf.multi_cell(0, 5, f"• {key}: {value}")
-        pdf.ln(5)
-
-    # Dados Pessoais
-    dados_pessoais = {
-        "Nome Completo": dados['nome'],
-        "CPF": dados['cpf'],
-        "Telefone": dados['telefone'],
-        "Data de Cadastro": dados['data_cadastro'],
-        "Status": dados['status']
-    }
-    add_section("Dados Pessoais", dados_pessoais)
-
-    # Dados do Veículo
-    dados_veiculo = {
-        "Moto": dados['moto'],
-        "Placa": dados['placa']
-    }
-    add_section("Dados do Veículo", dados_veiculo)
-
-    # Dados Operacionais
-    dados_operacionais = {
-        "Região de Trabalho": dados['regiao']
-    }
-    add_section("Dados Operacionais", dados_operacionais)
-
-    # Documentos (apenas nomes dos arquivos)
     pdf.set_font("Arial", 'B', 12)
-    pdf.set_fill_color(230, 230, 230)
-    pdf.cell(0, 8, "Documentos Anexados", 0, 1, 'L', 1)
-    pdf.set_font("Arial", size=10)
-    pdf.ln(2)
-    pdf.multi_cell(0, 5, f"• CNH: {dados['cnh_nome']}")
-    pdf.multi_cell(0, 5, f"• CRLV: {dados['crlv_nome']}")
-    pdf.multi_cell(0, 5, f"• Comprovante de Residência: {dados['comprovante_nome']}")
-    pdf.multi_cell(0, 5, f"• Foto da Moto: {dados['foto_moto_nome']}")
-    pdf.multi_cell(0, 5, f"• Selfie: {dados['selfie_nome']}")
-    pdf.ln(5)
+    pdf.cell(0, 10, f"Nome: {dados['nome']}", ln=True)
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(0, 10, f"CPF: {dados['cpf']}", ln=True)
+    pdf.cell(0, 10, f"Telefone: {dados['telefone']}", ln=True)
+    pdf.cell(0, 10, f"Moto: {dados['moto']} (Placa: {dados['placa']})", ln=True)
+    pdf.cell(0, 10, f"Região: {dados['regiao']}", ln=True)
+    pdf.cell(0, 10, f"Status: {dados['status']}", ln=True)
+    pdf.cell(0, 10, f"Data de Cadastro: {dados['data_cadastro']}", ln=True)
+
+    pdf.ln(10)
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, "Documentos Anexados:", ln=True)
+    pdf.set_font("Arial", '', 12)
+    pdf.cell(0, 10, f"- CNH: {dados['cnh_nome']}", ln=True)
+    pdf.cell(0, 10, f"- CRLV: {dados['crlv_nome']}", ln=True)
+    pdf.cell(0, 10, f"- Comprovante de Residência: {dados['comprovante_nome']}", ln=True)
+    pdf.cell(0, 10, f"- Foto da Moto: {dados['foto_moto_nome']}", ln=True)
+    pdf.cell(0, 10, f"- Selfie: {dados['selfie_nome']}", ln=True)
 
     return pdf.output(dest='S').encode('latin-1')
 
 # ==========================================
-# INTERFACE DO STREAMLIT
+# INICIALIZAÇÃO DO BANCO DE DADOS
 # ==========================================
 init_db()
 
+# ==========================================
+# LÓGICA DO APLICATIVO STREAMLIT
+# ==========================================
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
 if st.session_state['logged_in']:
-    # Sidebar para navegação do Admin
     st.sidebar.image("https://i.imgur.com/XqwkeselctWdszxkOJaqI5FQigDAantl8IX2D0gu2DFGl.png", use_column_width=True) # Logo JR Entregas
     st.sidebar.title("Painel Administrativo")
-    pagina_adm = st.sidebar.radio("Navegação", ["📊 Dashboard", "📋 Tabela Geral", "🔎 Conferência Detalhada", "➕ Criar Admin"])
+    pagina_adm = st.sidebar.radio(
+        "Navegação",
+        ["📊 Dashboard", "📋 Tabela Geral", "🔎 Conferência Detalhada", "➕ Criar Admin"]
+    )
+    st.sidebar.markdown("---")
+    if st.sidebar.button("Sair"):
+        st.session_state['logged_in'] = False
+        st.rerun()
 
     df_cadastros = carregar_cadastros()
 
     if pagina_adm == "📊 Dashboard":
         st.title("📊 Dashboard de Cadastros")
+        st.markdown("Bem-vindo ao painel de controle! Aqui você tem uma visão geral dos cadastros.")
 
         total_cadastros = len(df_cadastros)
         pendentes = df_cadastros[df_cadastros['status'] == 'Pendente'].shape[0]
         aprovados = df_cadastros[df_cadastros['status'] == 'Aprovado'].shape[0]
         rejeitados = df_cadastros[df_cadastros['status'] == 'Rejeitado'].shape[0]
 
+        # Layout dos cartões de métricas
         col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.markdown(f"<div class='metric-card'><h3>Total</h3><h1>{total_cadastros}</h1></div>", unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"<div class='metric-card'><h3>Pendentes</h3><h1 style='color: orange;'>{pendentes}</h1></div>", unsafe_allow_html=True)
-        with col3:
-            st.markdown(f"<div class='metric-card'><h3>Aprovados</h3><h1 style='color: green;'>{aprovados}</h1></div>", unsafe_allow_html=True)
-        with col4:
-            st.markdown(f"<div class='metric-card'><h3>Rejeitados</h3><h1 style='color: red;'>{rejeitados}</h1></div>", unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.subheader("Distribuição de Status")
+        with col1:
+            st.markdown(f"""
+            <div class="metric-box total">
+                <h3>{total_cadastros}</h3>
+                <p>Total de Cadastros</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""
+            <div class="metric-box pendente">
+                <h3>{pendentes}</h3>
+                <p>Cadastros Pendentes</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"""
+            <div class="metric-box aprovado">
+                <h3>{aprovados}</h3>
+                <p>Cadastros Aprovados</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with col4:
+            st.markdown(f"""
+            <div class="metric-box rejeitado">
+                <h3>{rejeitados}</h3>
+                <p>Cadastros Rejeitados</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("---") # Separador para o gráfico
+
+        st.subheader("Distribuição de Status dos Cadastros")
         if not df_cadastros.empty:
             status_counts = df_cadastros['status'].value_counts().reset_index()
             status_counts.columns = ['Status', 'Quantidade']
             st.bar_chart(status_counts.set_index('Status'))
         else:
-            st.info("Nenhum dado para exibir no dashboard ainda.")
+            st.info("Não há dados de cadastros para exibir no gráfico.")
 
     elif pagina_adm == "📋 Tabela Geral":
-        st.subheader("Todos os Cadastros")
+        st.subheader("Tabela Geral de Cadastros")
         if df_cadastros.empty:
             st.info("Nenhum cadastro recebido até o momento.")
         else:
